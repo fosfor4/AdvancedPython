@@ -1,0 +1,9 @@
+key1:
+- str1
+- str2
+- str3
+key2: 25
+key3:
+  dollar: 15＄
+  euro: 10€
+  ruble: 750₽
