@@ -3,6 +3,9 @@ import socket
 from argparse import ArgumentParser
 import time
 
+from actions import resolve
+from protocol import validate_request, make_response
+
 
 parser = ArgumentParser()
 
@@ -43,26 +46,28 @@ try:
 
         b_request = client.recv(socket_config.get('buffersize'))
         request = json.loads(b_request.decode())
-        request_action = request['action']
-
-        if request_action == 'presence':
-            msg = {
-                "response": 200,
-                "time": timestr,
-            }
-            json_msg = json.dumps(msg)
-
-            #msg = 'Привет, ' + request['user']['account_name']
-            client.send(json_msg.encode())
-            client.close()
+        
+        if validate_request(request):
+            action_name = request.get('action')
+            controller = resolve(action_name)
+            if controller:
+                try:
+                    print(f'Client send valid request {request}')
+                    response = controller(request)
+                except Exception as err:
+                    print(f'Internal server error: {err}')
+                    response = make_response(request, 500, data='Internal server error')
+            else:
+                print(f'Controller with action name {action_name} does not exists')
+                response = make_response(request, 404, 'Action not found')
+        
         else:
-            msg = {
-                "response": 400,
-                "time": timestr,
-            }
-            json_msg = json.dumps(msg)
+            print(f'Client send invalid request {request}')
+            response = make_responce(request, 404, 'Wrong request')
 
-            client.send(json_msg.encode())
-            client.close()
+        str_response = json.dumps(response)            
+        client.send(str_response.encode())
+        #client.close()
+        
 except KeyboardInterrupt:
     print('Server shutdown.')
