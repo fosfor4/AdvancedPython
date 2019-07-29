@@ -2,3 +2,5 @@ ipython
 jupyter
 pyyaml
 chardet
+pytest
+pytest-cov
