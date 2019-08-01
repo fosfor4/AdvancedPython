@@ -2,6 +2,16 @@ import json
 import socket
 from argparse import ArgumentParser
 from datetime import datetime
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers = [
+        logging.FileHandler('client.log'),
+        logging.StreamHandler()
+    ]
+)
 
 parser = ArgumentParser()
 
@@ -28,7 +38,7 @@ try:
     sock = socket.socket()
     sock.connect((host, port))
 
-    print('Client was started')
+    logging.info('Client was started')
     
     action = input('Enter action: ')
     data = input('Enter data: ')
@@ -41,10 +51,11 @@ try:
         
     str_request = json.dumps(request)
     sock.send(str_request.encode())
-    print(f'Client send data: {data}')    
+    logging.info(f'Client send data: {data}')    
     
     b_response = sock.recv(socket_config.get('buffersize'))
-    print(f'Server send data: {b_response.decode()}')
+    logging.info(f'Server send data: {b_response.decode()}')
+    logging.info('Client shutdown.')
  
 except KeyboardInterrupt:
-    print('Client shutdown.')
+    logging.info('Client shutdown.')

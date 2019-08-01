@@ -2,9 +2,19 @@ import json
 import socket
 from argparse import ArgumentParser
 import time
+import logging
 
 from actions import resolve
 from protocol import validate_request, make_response
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers = [
+        logging.FileHandler('server.log'),
+        logging.StreamHandler()
+    ]
+)
 
 
 parser = ArgumentParser()
@@ -34,13 +44,13 @@ try:
     sock.listen(5)
 
     if args.addr:
-        print(f'Server started with <{ host }>:{ port }')
+        logging.info(f'Server started with <{ host }>:{ port }')
     else:
-        print(f'Server started with <All_interfaces>:{ port }')
+        logging.info(f'Server started with <All_interfaces>:{ port }')
 
     while True:
         client, address = sock.accept()
-        print(f'Client was detected { address[0] }:{ address[1] }')
+        logging.info(f'Client was detected { address[0] }:{ address[1] }')
 
         timestr = time.ctime(time.time())
 
@@ -52,22 +62,23 @@ try:
             controller = resolve(action_name)
             if controller:
                 try:
-                    print(f'Client send valid request {request}')
+                    logging.debug(f'Client send valid request {request}')
                     response = controller(request)
                 except Exception as err:
-                    print(f'Internal server error: {err}')
+                    logging.error(f'Internal server error: {err}')
                     response = make_response(request, 500, data='Internal server error')
             else:
-                print(f'Controller with action name {action_name} does not exists')
+                logging.debug(f'Controller with action name {action_name} does not exists')
                 response = make_response(request, 404, 'Action not found')
         
         else:
-            print(f'Client send invalid request {request}')
+            logging.debug(f'Client send invalid request {request}')
             response = make_responce(request, 404, 'Wrong request')
 
         str_response = json.dumps(response)            
         client.send(str_response.encode())
+        logging.debug(f'Server response message: {response}')
         #client.close()
         
 except KeyboardInterrupt:
-    print('Server shutdown.')
+    logging.info('Server shutdown.')
