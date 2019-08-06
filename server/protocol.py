@@ -10,6 +10,7 @@ def validate_request(request):
 @logged
 def make_response(request, code, data=None):
     return {
+        'user': request.get('user'),
         'action': request.get('action'),
         'time': datetime.now().timestamp(),
         'code': code,

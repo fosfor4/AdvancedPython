@@ -1,11 +1,12 @@
 import json
 import socket
 from argparse import ArgumentParser
-import time
 import logging
+import select
 
 from actions import resolve
 from protocol import validate_request, make_response
+from handlers import handle_default_request
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -38,9 +39,14 @@ if args.port:
 
 host, port = socket_config.get('host'), socket_config.get('port')
 
+requests = []
+connections = []
+
 try:
     sock = socket.socket()
     sock.bind((host, port))
+    sock.setblocking(False)
+    sock.settimeout(0)
     sock.listen(5)
 
     if args.addr:
@@ -49,36 +55,26 @@ try:
         logging.info(f'Server started with <All_interfaces>:{ port }')
 
     while True:
-        client, address = sock.accept()
-        logging.info(f'Client was detected { address[0] }:{ address[1] }')
-
-        timestr = time.ctime(time.time())
-
-        b_request = client.recv(socket_config.get('buffersize'))
-        request = json.loads(b_request.decode())
+        try:
+            client, address = sock.accept()
+            logging.info(f'Client was detected { address[0] }:{ address[1] }')
+            connections.append(client)
+        except:
+            pass
         
-        if validate_request(request):
-            action_name = request.get('action')
-            controller = resolve(action_name)
-            if controller:
-                try:
-                    logging.debug(f'Client send valid request {request}')
-                    response = controller(request)
-                except Exception as err:
-                    logging.error(f'Internal server error: {err}')
-                    response = make_response(request, 500, data='Internal server error')
-            else:
-                logging.debug(f'Controller with action name {action_name} does not exists')
-                response = make_response(request, 404, 'Action not found')
-        
-        else:
-            logging.debug(f'Client send invalid request {request}')
-            response = make_responce(request, 404, 'Wrong request')
+        rlist, wlist, xlist = select.select(
+            connections, connections, connections, 0
+        )
 
-        str_response = json.dumps(response)            
-        client.send(str_response.encode())
-        logging.debug(f'Server response message: {response}')
-        #client.close()
-        
+        for read_client in rlist:
+            bytes_request = read_client.recv(socket_config.get('buffersize'))
+            requests.append(bytes_request)
+
+        if requests:
+            bytes_request = requests.pop()
+            bytes_response = handle_default_request(bytes_request)
+            for write_client in wlist:
+                write_client.send(bytes_response)
+       
 except KeyboardInterrupt:
     logging.info('Server shutdown.')
