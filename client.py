@@ -4,6 +4,8 @@ import socket
 from argparse import ArgumentParser
 from datetime import datetime
 import logging
+import threading
+import time
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -14,9 +16,15 @@ logging.basicConfig(
     ]
 )
 
-WRITE_MODE = 'write'
-READ_MODE = 'read'
+server_response = ''
 
+def read(sock, buffersize):
+    while True:
+        response = sock.recv(buffersize)
+        bytes_response = zlib.decompress(response)
+        logging.info(f'Server send data: { bytes_response.decode() }')
+        print('-' * 27)
+         
 def make_request (action, data):
     return {
         'user': name,
@@ -29,7 +37,6 @@ parser = ArgumentParser()
 
 parser.add_argument('-a', '--addr', type=str, required=False, help='Server ip-address, if none Localhost used')
 parser.add_argument('-p', '--port', type=int, required=False, help='Server ip-address, if none port 7777 used')
-parser.add_argument('-m', '--mode', type=str, default=WRITE_MODE, help='Sets client mode, default mode WRITE')
 
 args = parser.parse_args()
 
@@ -51,32 +58,34 @@ try:
     sock = socket.socket()
     sock.connect((host, port))
     logging.info('Client was started')
-    if args.mode == WRITE_MODE:
-        name = input('Enter your name: ')
-        print()
-        print(f'Hello { name }!')
-        print('-' * 27)
-        print('Choose your action: ')
-        print('echo - server echo response')
-        print('send - send message')
-        print('clock - server time')
-        print('-' * 27)
+    name = input('Enter your name: ')
+    print()
+    print(f'Hello { name }!')
+    print('-' * 27)
+    print('Choose your action: ')
+    print('echo - server echo response')
+    print('send - send message')
+    print('clock - server time')
+    print('-' * 27)
 
+    read_thread = threading.Thread(
+        target=read, args=(sock, socket_config.get('buffersize'))
+    )
+    read_thread.start()
+    
     while True:
-        if args.mode == WRITE_MODE:
-            action = input('Enter action: ')
-            data = input('Enter data: ')
-            request = make_request(action, data)
-            str_request = json.dumps(request)
-            bytes_request = zlib.compress(str_request.encode())
+        time.sleep(0.5)
+        action = input('Enter action: ')
+        data = input('Enter data: ')
+        print('-' * 27)
+        
+        request = make_request(action, data)
+        str_request = json.dumps(request)
+        bytes_request = zlib.compress(str_request.encode())
 
-            sock.send(bytes_request)    
-            logging.info(f'User { name } send action: {action}, with data: { data }')
-            print('-' * 27)
-        elif args.mode == READ_MODE:
-            response = sock.recv(socket_config.get('buffersize'))
-            bytes_response = zlib.decompress(response)
-            logging.info(f'Server send data { bytes_response.decode() }')
-
+        sock.send(bytes_request)    
+        logging.info(f'User { name } send action: {action}, with data: { data }')
+        print('-' * 27)
+            
 except KeyboardInterrupt:
     logging.info('Client shutdown.')
